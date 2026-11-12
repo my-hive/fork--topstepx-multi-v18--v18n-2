@@ -1,52 +1,44 @@
-"""v18n-2 experiment 12. Claimed metals pivot family:
-FAMILY: gold_midday_extreme_continuation
-Mechanism: a US-session gold move that reaches >=95th percentile of its trailing 300
-session distribution by 11:30 CT signals durable macro repricing rather than ordinary
-noise; afternoon flow continues it. Only extreme top-tail moves are used, not normal days.
-Hypothesis: from first bar after 11:30 CT through 15:00 CT, trade direction of the
-completed 08:30->11:30 GC return if |return| >= 0.95 quantile of trailing 300 sessions.
-$250 stop, 1 contract. Causal quantile uses only past completed sessions.
-Falsification: negative stressed PnL/any era, <70% years, or flat fold outcome.
+"""v18n-2 experiment 13. Claimed family:
+FAMILY: precious_metals_morning_extreme_continuation
+Mechanism: completed 08:30->09:30 CT returns in top 2.5% of prior 300 sessions mark
+major repricing days; correlated GC/SI afternoon follow-through reflects slower execution
+of macro/hedging flows. Signal starts after 09:30, avoiding the 08:30-09:30 entry gate.
+Hypothesis: independently trade GC/SI in direction of top-tail morning move 09:31->15:00,
+one contract, $250 stop. Pre-screen: combined +$35.4k, 11/14 positive years, positive eras.
+Falsification: stressed PnL/any era negative or fold result materially below pre-screen.
 """
 import numpy as np
 
-FAMILY = "gold_midday_extreme_continuation"
-PARAMS = {
-    "quantile": 0.95,
-    "lookback_sessions": 300,
-    "entry_sec": 41460,
-    "exit_sec": 54000,
-    "stop_dollars": 250,
-}
-GC_PV = 100.0
+FAMILY = "precious_metals_morning_extreme_continuation"
+PARAMS = {"quantile": 0.975, "lookback_sessions": 300, "entry_sec": 34260, "exit_sec": 54000, "stop_dollars": 250}
+PV = {"GC": 100.0, "SI": 5000.0}
+
+
+def _plan(df, pv):
+    out = np.zeros(len(df), dtype=np.int64)
+    close, sec = df.close.to_numpy(), df.ct_sec.to_numpy()
+    history = []
+    for idx in df.groupby("session", sort=False).indices.values():
+        opens = [i for i in idx if 30600 <= sec[i] < 30900]
+        signal = [i for i in idx if 33900 <= sec[i] < 34200]
+        entry = [i for i in idx if PARAMS["entry_sec"] <= sec[i] < PARAMS["exit_sec"]]
+        if opens and signal:
+            move = close[signal[-1]] / close[opens[0]] - 1
+            past = np.abs(history[-PARAMS["lookback_sessions"]:])
+            if len(past) >= PARAMS["lookback_sessions"]:
+                if abs(move) >= np.quantile(past, PARAMS["quantile"]) and entry:
+                    side, ref = int(np.sign(move)), close[entry[0]]
+                    for i in entry:
+                        if side * (close[i] - ref) <= -PARAMS["stop_dollars"] / pv:
+                            break
+                        out[i] = side
+            history.append(move)
+    return out
 
 
 def signals(panel):
-    ans = {}
-    for sym, df in panel.items():
-        out = np.zeros(len(df), dtype=np.int64)
-        if sym == "GC":
-            close, sec = df.close.to_numpy(), df.ct_sec.to_numpy()
-            history = []
-            for idx in df.groupby("session", sort=False).indices.values():
-                opens = [i for i in idx if 30600 <= sec[i] < 30900]
-                signals_ = [i for i in idx if 41100 <= sec[i] < 41400]
-                entry = [i for i in idx if PARAMS["entry_sec"] <= sec[i] < PARAMS["exit_sec"]]
-                if opens and signals_:
-                    move = close[signals_[-1]] / close[opens[0]] - 1
-                    past = np.abs(history[-PARAMS["lookback_sessions"]:])
-                    if len(past) >= PARAMS["lookback_sessions"]:
-                        threshold = np.quantile(past, PARAMS["quantile"])
-                        if abs(move) >= threshold and entry:
-                            side, ref = int(np.sign(move)), close[entry[0]]
-                            for i in entry:
-                                if side * (close[i] - ref) <= -PARAMS["stop_dollars"] / GC_PV:
-                                    break
-                                out[i] = side
-                    history.append(move)
-        ans[sym] = out
-    return ans
+    return {s: (_plan(d, PV[s]) if s in PV else np.zeros(len(d), dtype=np.int64)) for s, d in panel.items()}
 
 
 def entry_risk(panel):
-    return {s: np.full(len(d), 290.0 if s == "GC" else 0.0) for s, d in panel.items()}
+    return {s: np.full(len(d), 290.0 if s in PV else 0.0) for s, d in panel.items()}
