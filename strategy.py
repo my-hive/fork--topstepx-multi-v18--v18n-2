@@ -8,6 +8,7 @@ hold through 15:00 CT, no threshold or parameter-selected entry.
 Falsification: negative stressed total/era PnL or <70% positive years.
 """
 import numpy as np
+import pandas as pd
 
 FAMILY = "gold_silver_daily_divergence_reversion"
 PARAMS = {"entry_sec": 30600, "exit_sec": 54000}
@@ -24,12 +25,12 @@ def signals(panel):
     common = gc.index.intersection(sc.index)
     gr, sr = gc.loc[common].pct_change(), sc.loc[common].pct_change()
     side = np.sign(gr - sr).shift(1)  # positive: GC outperformed yesterday, short GC today
-    sides = dict(zip(common.astype(str), side.fillna(0).astype(int)))
+    sides = dict(zip(pd.DatetimeIndex(common).strftime("%Y-%m-%d"), side.fillna(0).astype(int)))
     for sym, df in (("GC", g), ("SI", z)):
         out = res[sym]
         sec = df.ct_sec.to_numpy()
         for idx in df.groupby("session", sort=False).indices.values():
-            signal = sides.get(str(df.session.iloc[idx[0]]), 0)
+            signal = sides.get(pd.Timestamp(df.session.iloc[idx[0]]).strftime("%Y-%m-%d"), 0)
             for i in idx:
                 if PARAMS["entry_sec"] <= sec[i] < PARAMS["exit_sec"]:
                     out[i] = -signal if sym == "GC" else signal
