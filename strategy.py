@@ -12,7 +12,7 @@ import pandas as pd
 
 FAMILY = "metals_friday_long"
 PARAMS = {"stop_dollars": 250, "exit_sec": 54000}
-SPECS = {"GC": (0.1, 100.0), "SI": (0.005, 5000.0)}
+SPECS = {"MGC": (0.1, 10.0), "SIL": (0.005, 1000.0)}
 
 
 def _plan(df, tick, pv):
