@@ -1,52 +1,52 @@
-"""v18n-2 experiment 11. Independent metals family.
-FAMILY: silver_extreme_reopen_gap_continuation
-Mechanism: extreme SI price gap from prior US close to 17:00 CT reopen reflects discrete
-macro/FX news while COMEX is shut; reopening participants continue repricing during next
-US session. Unlike overnight drift, this is a closed-market discontinuity.
-Hypothesis: SI gap magnitude >=5x trailing 60-session median gap, enter direction at
-09:35 CT, one contract, $250 stop, flat 15:00 CT. Pre-screen: 195 events, +$201 net/event,
-10/14 positive years. Falsification: stressed PnL/era failure or weak fold outcome.
+"""v18n-2 experiment 12. Claimed metals pivot family:
+FAMILY: gold_midday_extreme_continuation
+Mechanism: a US-session gold move that reaches >=95th percentile of its trailing 300
+session distribution by 11:30 CT signals durable macro repricing rather than ordinary
+noise; afternoon flow continues it. Only extreme top-tail moves are used, not normal days.
+Hypothesis: from first bar after 11:30 CT through 15:00 CT, trade direction of the
+completed 08:30->11:30 GC return if |return| >= 0.95 quantile of trailing 300 sessions.
+$250 stop, 1 contract. Causal quantile uses only past completed sessions.
+Falsification: negative stressed PnL/any era, <70% years, or flat fold outcome.
 """
 import numpy as np
 
-FAMILY = "silver_extreme_reopen_gap_continuation"
-PARAMS = {"z_min": 5.0, "vol_sessions": 60, "entry_sec": 34500, "exit_sec": 54000, "stop_dollars": 250}
-SI_PV = 5000.0
+FAMILY = "gold_midday_extreme_continuation"
+PARAMS = {
+    "quantile": 0.95,
+    "lookback_sessions": 300,
+    "entry_sec": 41460,
+    "exit_sec": 54000,
+    "stop_dollars": 250,
+}
+GC_PV = 100.0
 
 
 def signals(panel):
-    ans = {s: np.zeros(len(d), dtype=np.int64) for s, d in panel.items()}
-    if "SI" not in panel:
-        return ans
-    df = panel["SI"]
-    out = ans["SI"]
-    c, s = df.close.to_numpy(), df.ct_sec.to_numpy()
-    gaps = []
-    prior_close = None
-    for idx in df.groupby("session", sort=False).indices.values():
-        reopen = [i for i in idx if 61200 <= s[i] < 61500]
-        us_close = [i for i in idx if 53700 <= s[i] <= 54000]
-        entry = [i for i in idx if PARAMS["entry_sec"] <= s[i] < PARAMS["exit_sec"]]
-        if not reopen or prior_close is None:
-            if us_close:
-                prior_close = c[us_close[-1]]
-            continue
-        gap = c[reopen[0]] / prior_close - 1
-        past = gaps[-PARAMS["vol_sessions"]:]
-        gaps.append(abs(gap))
-        if us_close:
-            next_prior = c[us_close[-1]]
-        else:
-            next_prior = prior_close
-        if len(past) >= PARAMS["vol_sessions"] and entry and abs(gap) >= PARAMS["z_min"] * np.median(past):
-            side, ref = int(np.sign(gap)), c[entry[0]]
-            for i in entry:
-                if side * (c[i] - ref) <= -PARAMS["stop_dollars"] / SI_PV:
-                    break
-                out[i] = side
-        prior_close = next_prior
+    ans = {}
+    for sym, df in panel.items():
+        out = np.zeros(len(df), dtype=np.int64)
+        if sym == "GC":
+            close, sec = df.close.to_numpy(), df.ct_sec.to_numpy()
+            history = []
+            for idx in df.groupby("session", sort=False).indices.values():
+                opens = [i for i in idx if 30600 <= sec[i] < 30900]
+                signals_ = [i for i in idx if 41100 <= sec[i] < 41400]
+                entry = [i for i in idx if PARAMS["entry_sec"] <= sec[i] < PARAMS["exit_sec"]]
+                if opens and signals_:
+                    move = close[signals_[-1]] / close[opens[0]] - 1
+                    past = np.abs(history[-PARAMS["lookback_sessions"]:])
+                    if len(past) >= PARAMS["lookback_sessions"]:
+                        threshold = np.quantile(past, PARAMS["quantile"])
+                        if abs(move) >= threshold and entry:
+                            side, ref = int(np.sign(move)), close[entry[0]]
+                            for i in entry:
+                                if side * (close[i] - ref) <= -PARAMS["stop_dollars"] / GC_PV:
+                                    break
+                                out[i] = side
+                    history.append(move)
+        ans[sym] = out
     return ans
 
 
 def entry_risk(panel):
-    return {s: np.full(len(d), 290.0 if s == "SI" else 0.0) for s, d in panel.items()}
+    return {s: np.full(len(d), 290.0 if s == "GC" else 0.0) for s, d in panel.items()}
