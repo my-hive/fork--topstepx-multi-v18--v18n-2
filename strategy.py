@@ -1,42 +1,40 @@
-"""v18n-2 experiment 7. Claimed independent family:
-FAMILY: gold_silver_daily_divergence_reversion
-Mechanism: GC and SI share monetary-metal macro beta. A prior-session relative-return
-divergence is often transient liquidity/positioning, so relative loser catches up during
-following liquid US hours; market-neutral pair limits dollar-beta exposure.
-Hypothesis: at 08:30 CT, long prior-day loser and short prior-day winner in GC/SI;
-hold through 15:00 CT, no threshold or parameter-selected entry.
-Falsification: negative stressed total/era PnL or <70% positive years.
+"""v18n-2 experiment 8. Claimed independent seed-area family:
+FAMILY: copper_sunday_reopen_long
+Mechanism: COMEX copper's Sunday session includes first liquid price discovery after
+weekend China/industrial-news accumulation. Development daily scan finds Sunday-session
+HG mean +7.3bp (unlike its weak Monday/Tuesday), consistent with deferred reopening flow.
+Hypothesis: long first available HG bar in Sunday-labelled session, hold through Monday
+15:00 CT or a $250 completed-bar stop. One contract.
+Falsification: stressed loss, negative era, or <70% positive years.
 """
 import numpy as np
 import pandas as pd
 
-FAMILY = "gold_silver_daily_divergence_reversion"
-PARAMS = {"entry_sec": 30600, "exit_sec": 54000}
+FAMILY = "copper_sunday_reopen_long"
+PARAMS = {"exit_sec": 54000, "stop_dollars": 250}
+HG_PV = 25000.0
 
 
 def signals(panel):
-    res = {s: np.zeros(len(d), dtype=np.int64) for s, d in panel.items()}
-    if not {"GC", "SI"} <= set(panel):
-        return res
-    g, z = panel["GC"], panel["SI"]
-    # Build only from each prior completed session's final close.
-    gc = g.groupby("session", sort=False).close.last()
-    sc = z.groupby("session", sort=False).close.last()
-    common = gc.index.intersection(sc.index)
-    gr, sr = gc.loc[common].pct_change(), sc.loc[common].pct_change()
-    side = np.sign(gr - sr).shift(1)  # positive: GC outperformed yesterday, short GC today
-    sides = dict(zip(pd.DatetimeIndex(common).strftime("%Y-%m-%d"), side.fillna(0).astype(int)))
-    for sym, df in (("GC", g), ("SI", z)):
-        out = res[sym]
-        sec = df.ct_sec.to_numpy()
-        for idx in df.groupby("session", sort=False).indices.values():
-            signal = sides.get(pd.Timestamp(df.session.iloc[idx[0]]).strftime("%Y-%m-%d"), 0)
-            for i in idx:
-                if PARAMS["entry_sec"] <= sec[i] < PARAMS["exit_sec"]:
-                    out[i] = -signal if sym == "GC" else signal
-    return res
+    ans = {}
+    for sym, df in panel.items():
+        out = np.zeros(len(df), dtype=np.int64)
+        if sym == "HG":
+            close, sec = df.close.to_numpy(), df.ct_sec.to_numpy()
+            for idx in df.groupby("session", sort=False).indices.values():
+                # Session label is CT trading date. Sunday label starts 17:00 CT Sunday.
+                session_day = pd.Timestamp(df.session.iloc[idx[0]]).day_of_week
+                if session_day != 6:
+                    continue
+                ref = close[idx[0]]
+                for i in idx[1:]:
+                    if sec[i] >= PARAMS["exit_sec"] or close[i] - ref <= -PARAMS["stop_dollars"] / HG_PV:
+                        break
+                    out[i] = 1
+        ans[sym] = out
+    return ans
 
 
 def entry_risk(panel):
-    # Pair's opposite legs hedge common metal beta; conservative $250/leg loss bound.
-    return {s: np.full(len(d), 250.0 if s in {"GC", "SI"} else 0.0) for s, d in panel.items()}
+    return {s: np.full(len(d), PARAMS["stop_dollars"] if s == "HG" else 0.0)
+            for s, d in panel.items()}
