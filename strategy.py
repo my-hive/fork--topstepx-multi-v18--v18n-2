@@ -1,26 +1,28 @@
-"""v18n-2 experiment 35. Diagnostic of FAMILY metals_extreme_overnight_continuation.
-Mechanism unchanged: unusually large completed overnight SI move indicates information
-arrival whose direction persists after COMEX opens. This is a declared threshold-definition
-audit after exp10 used median-relative move.
-Hypothesis: SI overnight absolute return >= causal 95th percentile of trailing 300 overnight
-returns; trade direction 08:30->15:00, $250 stop. Falsification: stressed PnL/era failure.
+"""v18n-2 experiment 36.
+FAMILY: gold_friday_after_loss_shortcover
+Mechanism: a Thursday loss leaves speculative gold shorts vulnerable to Friday short
+covering before weekend headline risk; only completed negative prior session activates.
+Hypothesis: after negative completed GC Thursday, long following Friday session from 17:00
+CT reopen through 15:00 CT, $250 stop. Falsification: stressed loss/negative era/years.
 """
 import numpy as np
-FAMILY="metals_extreme_overnight_continuation"
-PARAMS={"quantile":.95,"lookback_sessions":300,"entry_sec":30600,"exit_sec":54000,"stop_dollars":250}
+import pandas as pd
+FAMILY="gold_friday_after_loss_shortcover"
+PARAMS={"stop_dollars":250}
 def signals(panel):
  ans={s:np.zeros(len(d),dtype=np.int64) for s,d in panel.items()}
- if "SI" not in panel:return ans
- d=panel["SI"];o=ans["SI"];c,t=d.close.to_numpy(),d.ct_sec.to_numpy();hist=[]
+ if "GC" not in panel:return ans
+ d=panel["GC"];o=ans["GC"];c,t=d.close.to_numpy(),d.ct_sec.to_numpy();prior=None;weak=False
  for ix in d.groupby("session",sort=False).indices.values():
-  pre=[i for i in ix if t[i]>=61200 or t[i]<30600];e=[i for i in ix if PARAMS["entry_sec"]<=t[i]<PARAMS["exit_sec"]]
-  if len(pre)<2:continue
-  r=c[pre[-1]]/c[pre[0]]-1;past=np.abs(hist[-PARAMS["lookback_sessions"]:])
-  if len(past)>=PARAMS["lookback_sessions"] and abs(r)>=np.quantile(past,PARAMS["quantile"]) and e:
-   side,ref=int(np.sign(r)),c[e[0]]
-   for i in e:
-    if side*(c[i]-ref)<=-PARAMS["stop_dollars"]/5000:break
-    o[i]=side
-  hist.append(r)
+  day=pd.Timestamp(d.session.iloc[ix[0]]).dayofweek
+  bars=[i for i in ix if 61200<=t[i]<61500]+[i for i in ix if 30600<=t[i]<54000]
+  if weak and day==4 and len(bars)>1:
+   ref=c[bars[0]]
+   for i in bars[1:]:
+    if c[i]-ref<=-2.5:break
+    o[i]=1
+  end=[i for i in ix if 53400<=t[i]<=54000]
+  if end:
+   px=c[end[-1]];weak=prior is not None and px<prior;prior=px
  return ans
-def entry_risk(panel):return {s:np.full(len(d),290. if s=="SI" else 0.) for s,d in panel.items()}
+def entry_risk(panel):return {s:np.full(len(d),290. if s=="GC" else 0.) for s,d in panel.items()}
