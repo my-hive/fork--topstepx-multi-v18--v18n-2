@@ -1,54 +1,42 @@
-"""v18n-2 experiment 2 (exp 1 churned per-minute; logged as failed).
-FAMILY: metals_us_opening_overnight_unwind
-Mechanism: thin Asia/London gold moves are partly liquidity-driven; deep COMEX open liquidity unwinds them.
-Hypothesis: fade completed prior-60min MGC move once at 08:30 CT, hold to 11:00 CT, vol stop, risk-sized.
-Falsification: stressed PnL not positive in all 3 eras or <70% positive years.
+"""v18n-2 experiment 3.
+FAMILY: gold_us_morning_range_breakout
+Mechanism: GC range built 17:00-08:30 CT (Asia+London) holds resting stops; a COMEX-session
+close beyond it triggers stop-run/CTA momentum that continues through the US morning.
+Hypothesis: first completed 1m close beyond overnight range at/after 08:30 CT, one trade/session,
+fixed $250 stop, flat 13:00 CT. GC only, 1 contract.
+Falsification: <70% positive years, any negative era, or fold pass rates ~0.
 """
 import numpy as np
 
-FAMILY = "metals_us_opening_overnight_unwind"
-PARAMS = {"lookback_min": 60, "vol_window": 240, "stop_vol_mult": 1.0, "exit_ct_sec": 39600, "risk_budget": 280}
-SYM = "MGC"
-PV = 10.0
-ENTRY_SEC = 30600  # 08:30 CT
-
-
-def _plan(df):
-    """Per-row desired target and per-contract risk, causal."""
-    n = len(df)
-    out = np.zeros(n, dtype=np.int64)
-    risk = np.zeros(n)
-    close, sec = df.close.to_numpy(), df.ct_sec.to_numpy()
-    lb, vw = PARAMS["lookback_min"], PARAMS["vol_window"]
-    for idx in df.groupby("session", sort=False).indices.values():
-        c, s = close[idx], sec[idx]
-        # first bar at/after entry time, if bar present within 5 minutes
-        hits = np.nonzero((s >= ENTRY_SEC) & (s < ENTRY_SEC + 300))[0]
-        if not len(hits) or hits[0] < max(lb, vw):
-            continue
-        j = hits[0]
-        move = c[j] - c[j - lb]
-        r = np.diff(c[j - vw:j + 1])
-        stop = PARAMS["stop_vol_mult"] * r.std() * np.sqrt(lb)
-        per = stop * PV + 2.0  # + slippage buffer
-        n_c = int(min(50, PARAMS["risk_budget"] // per))
-        if move == 0 or n_c < 1 or stop <= 0:
-            continue
-        side = -int(np.sign(move))
-        ref, pos = c[j], 0
-        for k in range(j, len(idx)):
-            if s[k] >= PARAMS["exit_ct_sec"]:
-                break
-            if k > j and side * (c[k] - ref) <= -stop:
-                break
-            out[idx[k]] = side * n_c
-            risk[idx[k]] = per
-    return out, risk
+FAMILY = "gold_us_morning_range_breakout"
+PARAMS = {"entry_sec": 30600, "exit_sec": 46800, "stop_ticks": 25}
+GC_TICK, GC_PV = 0.1, 100.0
+RISK = PARAMS["stop_ticks"] * GC_TICK * GC_PV  # $250/contract
 
 
 def signals(panel):
-    return {s: (_plan(d)[0] if s == SYM else np.zeros(len(d), dtype=np.int64)) for s, d in panel.items()}
+    res = {}
+    for sym, df in panel.items():
+        out = np.zeros(len(df), dtype=np.int64)
+        if sym == "GC":
+            c, h, l, s = (df[k].to_numpy() for k in ("close", "high", "low", "ct_sec"))
+            stop = PARAMS["stop_ticks"] * GC_TICK
+            for idx in df.groupby("session", sort=False).indices.values():
+                hi, lo, pos, ref, done = -np.inf, np.inf, 0, 0.0, False
+                for i in idx:
+                    t = s[i]
+                    if t < PARAMS["entry_sec"]:
+                        hi, lo = max(hi, h[i]), min(lo, l[i])
+                    elif t < PARAMS["exit_sec"] and not done:
+                        if pos == 0 and np.isfinite(hi):
+                            pos = 1 if c[i] > hi else (-1 if c[i] < lo else 0)
+                            ref = c[i]
+                        elif pos and pos * (c[i] - ref) <= -stop:
+                            pos, done = 0, True
+                        out[i] = pos
+        res[sym] = out
+    return res
 
 
 def entry_risk(panel):
-    return {s: (_plan(d)[1] if s == SYM else np.zeros(len(d))) for s, d in panel.items()}
+    return {s: np.full(len(d), RISK if s == "GC" else 0.0) for s, d in panel.items()}
