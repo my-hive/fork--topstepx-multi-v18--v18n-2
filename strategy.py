@@ -19,7 +19,7 @@ def signals(panel):
         out = np.zeros(len(df), dtype=np.int64)
         if sym == "GC":
             close, sec = df.close.to_numpy(), df.ct_sec.to_numpy()
-            week = (((pd.to_datetime(df.session).day - 1) // 7) + 1).to_numpy()
+            week = (((pd.to_datetime(df.session).dt.day - 1) // 7) + 1).to_numpy()
             for idx in df.groupby("session", sort=False).indices.values():
                 if week[idx[0]] not in PARAMS["weeks"]:
                     continue
