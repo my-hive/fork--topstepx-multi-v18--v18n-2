@@ -1,41 +1,53 @@
-"""v18n-2 experiment 4. Claimed family:
-FAMILY: metals_friday_long
-Mechanism: gold/silver exhibit a Friday-session long premium (GC +12bp/day, t=3.1;
-SI +14.6bp) - plausible short-hedging weekend cover and long-side weekend demand
-flow; scan shows 12/14 (GC) and 11/14 (SI) positive years, all near-zero other weekdays.
-Hypothesis: long GC+SI 1 contract each from Friday-session open (Thu 17:00 CT) to
-15:00 CT Friday, $250/contract hard stop. Falsification: <70% positive years, any
-negative era block, or PnL concentrated in one era.
+"""v18n-2 experiment 6.
+FAMILY: gold_us_morning_range_breakout
+Mechanism: GC overnight range 17:00-08:30 CT accumulates resting stops at its edges;
+on high-range days a COMEX close beyond the edge triggers stop-run/CTA momentum that
+persists into the US afternoon. Narrow overnight ranges carry no fuel - filtered out.
+Hypothesis: on days with overnight range >= $10, enter first completed close beyond the
+range at/after 08:30 CT, $250 stop, one trade/session, flat 15:00 CT. GC 1 contract.
+Vectorized pre-screen: +$50k total, 10/14 positive years, all 3 eras positive.
+Falsification: <70% positive years, any negative era, or worst-three fold pass ~0.
 """
 import numpy as np
-import pandas as pd
 
-FAMILY = "metals_friday_long"
-PARAMS = {"stop_dollars": 250, "exit_sec": 54000}
-SPECS = {"MGC": (0.1, 10.0), "SIL": (0.005, 1000.0)}
-
-
-def _plan(df, tick, pv):
-    out = np.zeros(len(df), dtype=np.int64)
-    stop = PARAMS["stop_dollars"] / pv
-    c, s = df.close.to_numpy(), df.ct_sec.to_numpy()
-    for idx in df.groupby("session", sort=False).indices.values():
-        day = pd.Timestamp(df.session.iloc[idx[0]]).day_of_week
-        if day != 4 or len(idx) < 2:  # Friday sessions only
-            continue
-        ref = c[idx[0]]
-        for i in idx[1:]:
-            if s[i] >= PARAMS["exit_sec"] or c[i] - ref <= -stop:
-                break
-            out[i] = 1
-    return out
+FAMILY = "gold_us_morning_range_breakout"
+PARAMS = {"entry_sec": 30600, "exit_sec": 54000, "stop_dollars": 250, "min_range_pts": 10.0}
+GC_PV = 100.0
 
 
 def signals(panel):
-    return {s: (_plan(d, *SPECS[s]) if s in SPECS else np.zeros(len(d), dtype=np.int64))
-            for s, d in panel.items()}
+    res = {}
+    for sym, df in panel.items():
+        out = np.zeros(len(df), dtype=np.int64)
+        if sym == "GC":
+            c, h, l, s = (df[k].to_numpy() for k in ("close", "high", "low", "ct_sec"))
+            stop = PARAMS["stop_dollars"] / GC_PV
+            for idx in df.groupby("session", sort=False).indices.values():
+                hi, lo, j = -np.inf, np.inf, 0
+                while j < len(idx) and (s[idx[j]] >= 61200 or s[idx[j]] < PARAMS["entry_sec"]):
+                    hi, lo = max(hi, h[idx[j]]), min(lo, l[idx[j]])
+                    j += 1
+                if not np.isfinite(hi) or hi - lo < PARAMS["min_range_pts"]:
+                    continue
+                pos, ref, done = 0, 0.0, False
+                for k in idx[j:]:
+                    if s[k] >= PARAMS["exit_sec"]:
+                        break
+                    if done:
+                        continue
+                    if pos == 0:
+                        if c[k] > hi:
+                            pos, ref = 1, c[k]
+                        elif c[k] < lo:
+                            pos, ref = -1, c[k]
+                    elif pos * (c[k] - ref) <= -stop:
+                        pos, done = 0, True
+                    out[k] = pos
+        res[sym] = out
+    return res
 
 
 def entry_risk(panel):
-    return {s: np.full(len(d), float(PARAMS["stop_dollars"]) if s in SPECS else 0.0)
-            for s, d in panel.items()}
+    # $250 stop + 2 ticks stressed slippage on the stop exit.
+    risk = PARAMS["stop_dollars"] + 40.0
+    return {s: np.full(len(d), risk if s == "GC" else 0.0) for s, d in panel.items()}
