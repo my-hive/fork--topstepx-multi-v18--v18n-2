@@ -28,7 +28,7 @@ def signals(panel):
                     continue
                 ref = close[idx[0]]
                 for i in idx[1:]:
-                    if sec[i] >= PARAMS["exit_sec"] or close[i] - ref <= -PARAMS["stop_dollars"] / GC_PV:
+                    if PARAMS["exit_sec"] <= sec[i] < 61200 or close[i] - ref <= -PARAMS["stop_dollars"] / GC_PV:
                         break
                     out[i] = 1
         ans[sym] = out
