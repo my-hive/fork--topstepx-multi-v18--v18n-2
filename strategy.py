@@ -1,23 +1,22 @@
-"""v18n-2 experiment 257.
-FAMILY: silver_december_yearend_industrial_reversal
-Mechanism: December year-end industrial inventory hedging creates silver selling through US cash
-liquidity.
-Hypothesis: short SI 08:30-15:00 in December; $250 stop.
+"""v18n-2 experiment 258.
+FAMILY: nasdaq_january_opening_newyear_rebalance_continuation
+Mechanism: January new-year institutional allocation reinforces opening NQ order flow.
+Hypothesis: follow NQ 08:30-10:00 direction through 15:00 in January; $250 stop.
 Falsification: stressed PnL, era, or yearly robustness failure.
 """
 import numpy as np
 import pandas as pd
-FAMILY="silver_december_yearend_industrial_reversal";PARAMS={"month":12,"stop_dollars":250}
+FAMILY="nasdaq_january_opening_newyear_rebalance_continuation";PARAMS={"month":1,"stop_dollars":250}
 def signals(panel):
  ans={s:np.zeros(len(d),dtype=np.int64) for s,d in panel.items()}
- if 'SI' not in panel:return ans
- d=panel['SI'];out=ans['SI'];c,t=d.close.to_numpy(),d.ct_sec.to_numpy();mon=pd.to_datetime(d.session).dt.month.to_numpy()
+ if 'NQ' not in panel:return ans
+ d=panel['NQ'];out=ans['NQ'];c,t=d.close.to_numpy(),d.ct_sec.to_numpy();mon=pd.to_datetime(d.session).dt.month.to_numpy()
  for ix in d.groupby('session',sort=False).indices.values():
-  bars=[i for i in ix if 30600<=t[i]<54000]
-  if mon[ix[0]]!=12 or not bars:continue
-  ref=c[bars[0]]
+  sig=[i for i in ix if 30600<=t[i]<36000];bars=[i for i in ix if 36000<=t[i]<54000]
+  if mon[ix[0]]!=1 or not sig or not bars:continue
+  side=1 if c[sig[-1]]>=c[sig[0]] else -1;ref=c[bars[0]]
   for i in bars:
-   if ref-c[i]<=-.5:break
-   out[i]=-1
+   if side*(c[i]-ref)<=-12.5:break
+   out[i]=side
  return ans
-def entry_risk(panel):return {s:np.full(len(d),250. if s=='SI' else 0.) for s,d in panel.items()}
+def entry_risk(panel):return {s:np.full(len(d),250. if s=='NQ' else 0.) for s,d in panel.items()}
