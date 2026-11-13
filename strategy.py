@@ -1,19 +1,19 @@
-"""v18n-2 experiment 53.
-FAMILY: nasdaq_wednesday_systematic_allocation
-Mechanism: midweek systematic allocation and options-hedging flow create a recurring NQ demand
-window after Monday/Tuesday price discovery.
-Hypothesis: long NQ Wednesday 17:00 CT reopen through 15:00 CT, $250 stop. Falsification:
+"""v18n-2 experiment 54.
+FAMILY: nasdaq_tuesday_post_discovery_risk_premium
+Mechanism: after Monday price discovery, Tuesday systematic equity allocation creates a Nasdaq
+risk premium across global and US hours.
+Hypothesis: long NQ Tuesday 17:00 CT reopen through 15:00 CT, $250 stop. Falsification:
 stressed PnL, era, or yearly robustness failure.
 """
 import numpy as np
 import pandas as pd
-FAMILY="nasdaq_wednesday_systematic_allocation";PARAMS={"stop_dollars":250}
+FAMILY="nasdaq_tuesday_post_discovery_risk_premium";PARAMS={"stop_dollars":250}
 def signals(panel):
  ans={s:np.zeros(len(d),dtype=np.int64) for s,d in panel.items()}
  if 'NQ' not in panel:return ans
  d=panel['NQ'];o=ans['NQ'];c,t=d.close.to_numpy(),d.ct_sec.to_numpy()
  for ix in d.groupby('session',sort=False).indices.values():
-  if pd.Timestamp(d.session.iloc[ix[0]]).dayofweek!=2:continue
+  if pd.Timestamp(d.session.iloc[ix[0]]).dayofweek!=1:continue
   bars=[i for i in ix if 61200<=t[i]<61500]+[i for i in ix if 30600<=t[i]<54000]
   if len(bars)<2:continue
   ref=c[bars[0]]
