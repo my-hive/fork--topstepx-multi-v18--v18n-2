@@ -11,7 +11,7 @@ FAMILY="equity_quarterend_lunch_execution";PARAMS={"stop_dollars":250}
 def signals(panel):
  ans={s:np.zeros(len(d),dtype=np.int64) for s,d in panel.items()}
  if 'ES' not in panel:return ans
- d=panel['ES'];out=ans['ES'];c,t=d.close.to_numpy();dt=pd.to_datetime(d.session);qend=(dt.dt.month.isin([3,6,9,12]) & (dt.dt.day>=25)).to_numpy()
+ d=panel['ES'];out=ans['ES'];c,t=d.close.to_numpy(),d.ct_sec.to_numpy();dt=pd.to_datetime(d.session);qend=(dt.dt.month.isin([3,6,9,12]) & (dt.dt.day>=25)).to_numpy()
  for ix in d.groupby('session',sort=False).indices.values():
   if not qend[ix[0]]:continue
   pre=[i for i in ix if 36000<=t[i]<39600];bars=[i for i in ix if 39660<=t[i]<54000]
