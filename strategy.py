@@ -1,19 +1,21 @@
-"""v18n-2 experiment 321."""
+"""v18n-2 experiment 322."""
 import numpy as np
 import pandas as pd
-FAMILY="nasdaq_cpi_proxy_liquidityabsorption_reversal"
-PARAMS={"reference_end":32400,"trade_start":32460,"trade_end":39600,"stop_dollars":250}
+FAMILY="spx_volume_shock_exhaustion_reversal"
+PARAMS={"volume_mult":8.0,"min_return":0.0015,"hold_bars":20,"stop_points":8.0}
 def signals(panel):
  ans={s:np.zeros(len(d),dtype=np.int64) for s,d in panel.items()}
- if "NQ" not in panel:return ans
- d=panel["NQ"];c,t=d.close.to_numpy(),d.ct_sec.to_numpy();cal=pd.to_datetime(d.session);day,wd=cal.dt.day.to_numpy(),cal.dt.dayofweek.to_numpy();out=ans["NQ"]
- for p in d.groupby("session",sort=False).indices.values():
-  if not(wd[p[0]]==2 and 8<=day[p[0]]<=14):continue
-  a=None;side=0
-  for i in p:
-   if t[i]==32400:a=c[i];side=-1 if c[i]>=c[p[0]] else 1
-   elif a is not None and 32460<=t[i]<39600:
-    if side*(c[i]-a)<=-50:break
-    out[i]=side
+ if "ES" not in panel:return ans
+ d=panel["ES"];c=d.close.to_numpy();v=d.volume.to_numpy().astype(float);t=d.ct_sec.to_numpy();ss=d.session.to_numpy()
+ med=pd.Series(v).shift(1).rolling(60,min_periods=60).median().to_numpy();out=ans["ES"]
+ ret=np.r_[0.0,c[1:]/c[:-1]-1.0];i=60;n=len(c)
+ while i<n-1:
+  if med[i]>0 and v[i]>PARAMS["volume_mult"]*med[i] and abs(ret[i])>=PARAMS["min_return"] and 30600<=t[i]<50000:
+   side=-1 if ret[i]>0 else 1;a=c[i]
+   for j in range(i+1,min(i+1+PARAMS["hold_bars"],n)):
+    if ss[j]!=ss[i] or t[j]>=50400 or side*(c[j]-a)<=-PARAMS["stop_points"]:break
+    out[j]=side
+   i+=PARAMS["hold_bars"]
+  else:i+=1
  return ans
-def entry_risk(panel):return {s:np.full(len(d),250.0 if s=="NQ" else 0.0) for s,d in panel.items()}
+def entry_risk(panel):return {s:np.full(len(d),250.0 if s=="ES" else 0.0) for s,d in panel.items()}
