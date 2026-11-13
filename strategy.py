@@ -1,24 +1,25 @@
-"""v18n-2 experiment 85.
-FAMILY: peso_thursday_carry_supply
-Mechanism: Thursday MXN carry hedging before Friday liquidity withdrawal creates futures supply
-during US hours.
-Hypothesis: short 6M Thursday 10:00-15:00 CT, $250 stop. Falsification: stressed PnL, era, or
-yearly robustness failure.
+"""v18n-2 experiment 86.
+FAMILY: ultrabond_tuesday_trend_carry
+Mechanism: Treasury duration demand extends into Tuesday after a positive three-session trend,
+as institutional carry hedges adjust between auctions.
+Hypothesis: long UB Tuesday 08:30-15:00 CT after positive trailing 3-session return, $250 stop.
+Falsification: stressed PnL, era, or yearly robustness failure.
 """
 import numpy as np
 import pandas as pd
-FAMILY="peso_thursday_carry_supply";PARAMS={"stop_dollars":250}
+FAMILY="ultrabond_tuesday_trend_carry";PARAMS={"lookback_days":3,"stop_dollars":250}
 def signals(panel):
  ans={s:np.zeros(len(d),dtype=np.int64) for s,d in panel.items()}
- if '6M' not in panel:return ans
- d=panel['6M'];o=ans['6M'];c,t=d.close.to_numpy(),d.ct_sec.to_numpy()
- for ix in d.groupby('session',sort=False).indices.values():
-  if pd.Timestamp(d.session.iloc[ix[0]]).dayofweek!=3:continue
-  bars=[i for i in ix if 36000<=t[i]<54000]
-  if len(bars)<2:continue
-  ref=c[bars[0]]
-  for i in bars[1:]:
-   if ref-c[i]<=-.0005:break
-   o[i]=-1
+ if 'UB' not in panel:return ans
+ d=panel['UB'];o=ans['UB'];c,t=d.close.to_numpy(),d.ct_sec.to_numpy();days=list(d.groupby('session',sort=False).indices.values());rs=[]
+ for n,ix in enumerate(days):
+  side=(pd.Timestamp(d.session.iloc[ix[0]]).dayofweek==1 and n>=3 and sum(rs[-3:])>0)
+  bars=[i for i in ix if 30600<=t[i]<54000]
+  if side and len(bars)>1:
+   ref=c[bars[0]]
+   for i in bars[1:]:
+    if c[i]-ref<=-.5:break
+    o[i]=1
+  rs.append(c[ix[-1]]/c[ix[0]]-1)
  return ans
-def entry_risk(panel):return {s:np.full(len(d),290. if s=='6M' else 0.) for s,d in panel.items()}
+def entry_risk(panel):return {s:np.full(len(d),290. if s=='UB' else 0.) for s,d in panel.items()}
