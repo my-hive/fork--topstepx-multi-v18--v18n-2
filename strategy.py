@@ -1,35 +1,34 @@
-"""v18n-2 experiment 269."""
+"""v18n-2 experiment 270."""
 import numpy as np
 import pandas as pd
 
-FAMILY = "naturalgas_weekly_storage_release_reversal"
-PARAMS = {"release_start": 34200, "release_end": 35100, "trade_start": 35160,
-          "trade_end": 43200, "stop_dollars": 250}
+FAMILY = "australiandollar_asia_europe_handoff_continuation"
+PARAMS = {"reference_start": 64800, "reference_end": 3600, "trade_start": 3660,
+          "trade_end": 14400, "stop_dollars": 250}
 
 
 def signals(panel):
     ans = {symbol: np.zeros(len(data), dtype=np.int64) for symbol, data in panel.items()}
-    if "NG" not in panel:
+    if "6A" not in panel:
         return ans
-    data = panel["NG"]
+    data = panel["6A"]
     close = data.close.to_numpy()
     seconds = data.ct_sec.to_numpy()
-    weekday = pd.to_datetime(data.session).dt.weekday.to_numpy()
-    out = ans["NG"]
+    out = ans["6A"]
     for positions in data.groupby("session", sort=False).indices.values():
-        release = [i for i in positions if 34200 <= seconds[i] <= 35100]
-        trading = [i for i in positions if 35160 <= seconds[i] < 43200]
-        if weekday[positions[0]] != 3 or not release or not trading:
+        reference = [i for i in positions if seconds[i] >= 64800 or seconds[i] <= 3600]
+        trading = [i for i in positions if 3660 <= seconds[i] < 14400]
+        if not reference or not trading:
             continue
-        side = -1 if close[release[-1]] >= close[release[0]] else 1
-        anchor = close[release[-1]]
+        side = 1 if close[reference[-1]] >= close[reference[0]] else -1
+        anchor = close[reference[-1]]
         for i in trading:
-            if side * (close[i] - anchor) <= -0.05:
+            if side * (close[i] - anchor) <= -0.0025:
                 break
             out[i] = side
     return ans
 
 
 def entry_risk(panel):
-    return {symbol: np.full(len(data), 250.0 if symbol == "NG" else 0.0)
+    return {symbol: np.full(len(data), 250.0 if symbol == "6A" else 0.0)
             for symbol, data in panel.items()}
