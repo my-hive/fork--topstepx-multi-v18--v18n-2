@@ -1,21 +1,22 @@
-"""v18n-2 experiment 339."""
+"""v18n-2 experiment 340."""
 import numpy as np
-import pandas as pd
-FAMILY="spx_dow_morning_relativevalue_convergence"
-PARAMS={"lookback":60,"z_threshold":2.0,"trade_start":30600,"trade_end":39600,"stop_points":50.0}
+FAMILY="spx_overnight_cashopen_acceptance_continuation"
+PARAMS={"overnight_start":61200,"open":30600,"confirm_end":31500,"trade_end":39600,"stop_points":5.0}
 def signals(panel):
  ans={s:np.zeros(len(d),dtype=np.int64) for s,d in panel.items()}
- if "YM" not in panel or "ES" not in panel:return ans
- ym,es=panel["YM"],panel["ES"];ix=ym.index;ce=es.close.reindex(ix).ffill();cy=ym.close
- rel=np.log(cy/cy.shift(PARAMS["lookback"]))-np.log(ce/ce.shift(PARAMS["lookback"]))
- z=(rel/rel.shift(1).rolling(1200,min_periods=600).std()).to_numpy();c=cy.to_numpy();t=ym.ct_sec.to_numpy();out=ans["YM"]
- for p in ym.groupby("session",sort=False).indices.values():
-  for k,i in enumerate(p):
-   if not(PARAMS["trade_start"]<=t[i]<PARAMS["trade_end"] and abs(z[i])>=PARAMS["z_threshold"]):continue
-   side=-1 if z[i]>0 else 1;a=c[i]
-   for j in p[k+1:]:
-    if t[j]>=PARAMS["trade_end"] or side*(c[j]-a)<=-PARAMS["stop_points"]:break
-    out[j]=side
-   break
+ if "ES" not in panel:return ans
+ d=panel["ES"];c=d.close.to_numpy();t=d.ct_sec.to_numpy();out=ans["ES"]
+ for p in d.groupby("session",sort=False).indices.values():
+  pre=p[(t[p]>=PARAMS["overnight_start"])|(t[p]<PARAMS["open"])]
+  first=p[(t[p]>=PARAMS["open"])&(t[p]<=PARAMS["confirm_end"])]
+  if len(pre)<30 or len(first)<10:continue
+  side=1 if c[pre[-1]]>c[pre[0]] else -1
+  opening=c[first[-1]]-c[first[0]]
+  if side*opening<=0:continue
+  a=c[first[-1]]
+  for i in p:
+   if t[i]<=PARAMS["confirm_end"]:continue
+   if t[i]>=PARAMS["trade_end"] or side*(c[i]-a)<=-PARAMS["stop_points"]:break
+   out[i]=side
  return ans
-def entry_risk(panel):return {s:np.full(len(d),250.0 if s=="YM" else 0.0) for s,d in panel.items()}
+def entry_risk(panel):return {s:np.full(len(d),250.0 if s=="ES" else 0.0) for s,d in panel.items()}
