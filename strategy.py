@@ -1,13 +1,13 @@
-"""v18n-2 experiment 234.
-FAMILY: equity_lunch_breadth_june_index_rebalance_diversified_flow
-Mechanism: broad lunch index execution and June NQ index-rebalance opening demand are distinct
-calendar flows combined to raise combine-attempt frequency.
-Hypothesis: causal 60-session two-index lunch quorum plus June NQ opening continuation; $250 stops.
+"""v18n-2 experiment 235.
+FAMILY: equity_lunch_breadth_march_index_rebalance_diversified_flow
+Mechanism: broad lunch index execution and March NQ index-rebalance opening demand are distinct
+calendar flows combined to improve combine-attempt frequency.
+Hypothesis: causal 60-session two-index lunch quorum plus March NQ opening continuation; $250 stops.
 Falsification: stressed PnL, era, years, or shared-account risk failure.
 """
 import numpy as np
 import pandas as pd
-FAMILY="equity_lunch_breadth_june_index_rebalance_diversified_flow";PARAMS={"lookback_sessions":60,"quantile":.95,"quorum":2}
+FAMILY="equity_lunch_breadth_march_index_rebalance_diversified_flow";PARAMS={"lookback_sessions":60,"quantile":.95,"quorum":2}
 STOP={'ES':5.,'NQ':12.5,'YM':50.,'RTY':5.}
 def signals(panel):
  ans={s:np.zeros(len(d),dtype=np.int64) for s,d in panel.items()};info={}
@@ -25,7 +25,7 @@ def signals(panel):
   c,t=d.close.to_numpy(),d.ct_sec.to_numpy();out=ans[s];mon=pd.to_datetime(d.session).dt.month.to_numpy()
   for day,ix in d.groupby('session',sort=False).indices.items():
    z=info.get(str(day),{});side=z.get(s,0) if sum(v==z.get(s,0) for v in z.values())>=2 else 0;bars=[i for i in ix if 43260<=t[i]<54000]
-   if s=='NQ' and mon[ix[0]]==6:
+   if s=='NQ' and mon[ix[0]]==3:
     pre=[i for i in ix if 30600<=t[i]<36000]
     if len(pre)>1: side=np.sign(c[pre[-1]]-c[pre[0]]);bars=[i for i in ix if 36000<=t[i]<54000]
    if not side or not bars:continue
