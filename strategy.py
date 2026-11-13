@@ -1,24 +1,22 @@
-"""v18n-2 experiment 325."""
+"""v18n-2 experiment 326."""
 import numpy as np
 import pandas as pd
-FAMILY="euro_overnight_liquidityvacuum_openingrange_continuation"
-PARAMS={"range_start":21600,"range_end":25200,"trade_end":30600,"volume_ratio":0.7,"stop_dollars":0.002}
+FAMILY="spx_lateday_realizedvolatility_continuation"
+PARAMS={"reference_bars":30,"baseline_bars":120,"vol_multiplier":1.5,"trade_end":54000,"stop_points":8.0}
 def signals(panel):
  ans={s:np.zeros(len(d),dtype=np.int64) for s,d in panel.items()}
- if "6E" not in panel:return ans
- d=panel["6E"];c=d.close.to_numpy();h=d.high.to_numpy();l=d.low.to_numpy();v=d.volume.to_numpy().astype(float);t=d.ct_sec.to_numpy();ss=d.session.to_numpy();out=ans["6E"]
- med=pd.Series(v).shift(1).rolling(60,min_periods=60).median().to_numpy()
+ if "ES" not in panel:return ans
+ d=panel["ES"];c=d.close.to_numpy();t=d.ct_sec.to_numpy();ss=d.session.to_numpy();out=ans["ES"]
  for p in d.groupby("session",sort=False).indices.values():
-  ix=p[(t[p]>=21600)&(t[p]<=25200)]
-  if len(ix)<30 or med[ix[-1]]<=0 or v[ix].mean()>PARAMS["volume_ratio"]*med[ix[-1]]:continue
-  hi=h[ix].max();lo=l[ix].min();side=0;a=0.0
+  ix=p[(t[p]>=46800)&(t[p]<48600)]
+  base=p[(t[p]>=39600)&(t[p]<46800)]
+  if len(ix)<30 or len(base)<60:continue
+  move=c[ix[-1]]-c[ix[0]];rv=np.ptp(c[ix]);bv=np.ptp(c[base])
+  if not move or rv< PARAMS["vol_multiplier"]*bv/4:continue
+  side=1 if move>0 else -1;a=c[ix[-1]]
   for i in p:
-   if t[i]<=25200:continue
-   if t[i]>=30600:break
-   if not side:
-    if c[i]>hi:side=1;a=c[i]
-    elif c[i]<lo:side=-1;a=c[i]
-   elif side*(c[i]-a)<=-PARAMS["stop_dollars"]:break
-   if side:out[i]=side
+   if t[i]<48600:continue
+   if t[i]>=PARAMS["trade_end"] or side*(c[i]-a)<=-PARAMS["stop_points"]:break
+   out[i]=side
  return ans
-def entry_risk(panel):return {s:np.full(len(d),250.0 if s=="6E" else 0.0) for s,d in panel.items()}
+def entry_risk(panel):return {s:np.full(len(d),250.0 if s=="ES" else 0.0) for s,d in panel.items()}
