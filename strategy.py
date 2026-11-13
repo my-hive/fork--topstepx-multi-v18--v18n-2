@@ -1,45 +1,23 @@
-"""v18n-2 experiment 228.
-FAMILY: equity_lunch_breadth_energy_transfer_diversified_flow
-Mechanism: broad institutional index execution at lunch and natural-gas-to-heating-oil energy
-transfer are distinct, low-overlap flows; combined to raise combine-attempt frequency.
-Hypothesis: causal 60-session two-index lunch quorum plus NG-to-HO extreme opening transfer;
-$250 stop each. Falsification: stressed PnL, era, years, or shared-account risk failure.
+"""v18n-2 experiment 229.
+FAMILY: nasdaq_october_opening_earnings_positioning_continuation
+Mechanism: October earnings-season index hedging at US open continues as dealer inventory is
+unwound across liquid cash hours.
+Hypothesis: follow 08:30-10:00 NQ direction 10:00-15:00 in October; $250 stop.
+Falsification: stressed PnL, era, or yearly robustness failure.
 """
 import numpy as np
 import pandas as pd
-FAMILY="equity_lunch_breadth_energy_transfer_diversified_flow";PARAMS={"lookback_sessions":60,"quantile":.95,"quorum":2}
-STOP={'ES':5.,'NQ':12.5,'YM':50.,'RTY':5.,'HO':.006}
+FAMILY="nasdaq_october_opening_earnings_positioning_continuation";PARAMS={"month":10,"stop_dollars":250}
 def signals(panel):
- ans={s:np.zeros(len(d),dtype=np.int64) for s,d in panel.items()};info={}
- for s,d in panel.items():
-  if s not in STOP or s=='HO':continue
-  c,t=d.close.to_numpy(),d.ct_sec.to_numpy();hist=[]
-  for day,ix in d.groupby('session',sort=False).indices.items():
-   pre=[i for i in ix if 39600<=t[i]<43200]
-   if len(pre)>1:
-    m=c[pre[-1]]-c[pre[0]];th=np.quantile(np.abs(hist[-60:]),.95) if len(hist)>=60 else np.inf
-    if abs(m)>=th:info.setdefault(str(day),{})[s]=np.sign(m)
-    hist.append(m)
- events={}
- if 'NG' in panel:
-  d=panel['NG'];c,t=d.close.to_numpy(),d.ct_sec.to_numpy();hist=[]
-  for day,ix in d.groupby('session',sort=False).indices.items():
-   pre=[i for i in ix if 30600<=t[i]<34200]
-   if len(pre)>1:
-    m=c[pre[-1]]-c[pre[0]];th=np.quantile(np.abs(hist[-60:]),.8) if len(hist)>=60 else np.inf
-    if abs(m)>=th:events[str(day)]=np.sign(m)
-    hist.append(m)
- for s,d in panel.items():
-  if s not in STOP:continue
-  c,t=d.close.to_numpy(),d.ct_sec.to_numpy();out=ans[s]
-  for day,ix in d.groupby('session',sort=False).indices.items():
-   if s=='HO':side=events.get(str(day),0);bars=[i for i in ix if 34260<=t[i]<54000]
-   else:
-    z=info.get(str(day),{});side=z.get(s,0) if sum(v==z.get(s,0) for v in z.values())>=2 else 0;bars=[i for i in ix if 43260<=t[i]<54000]
-   if not side or not bars:continue
-   ref=c[bars[0]]
-   for i in bars:
-    if side*(c[i]-ref)<=-STOP[s]:break
-    out[i]=side
+ ans={s:np.zeros(len(d),dtype=np.int64) for s,d in panel.items()}
+ if 'NQ' not in panel:return ans
+ d=panel['NQ'];out=ans['NQ'];c,t=d.close.to_numpy(),d.ct_sec.to_numpy();dt=pd.to_datetime(d.session);mon=dt.dt.month.to_numpy()
+ for ix in d.groupby('session',sort=False).indices.values():
+  pre=[i for i in ix if 30600<=t[i]<36000];bars=[i for i in ix if 36000<=t[i]<54000]
+  if mon[ix[0]]!=10 or len(pre)<2 or not bars:continue
+  side=np.sign(c[pre[-1]]-c[pre[0]]);ref=c[bars[0]]
+  for i in bars:
+   if side*(c[i]-ref)<=-12.5:break
+   out[i]=side
  return ans
-def entry_risk(panel):return {s:np.full(len(d),250. if s in STOP else 0.) for s,d in panel.items()}
+def entry_risk(panel):return {s:np.full(len(d),250. if s=='NQ' else 0.) for s,d in panel.items()}
