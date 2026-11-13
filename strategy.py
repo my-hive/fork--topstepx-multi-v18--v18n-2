@@ -1,20 +1,20 @@
-"""v18n-2 experiment 169.
-FAMILY: ultrabond_cash_open_duration_shock_continuation
-Mechanism: exceptional post-cash-open long-duration move reflects macro surprise and convexity
-hedging that persists as cash-bond liquidity updates.
-Hypothesis: follow top-quintile UB 09:30-10:00 move through 15:00; $250 stop.
+"""v18n-2 experiment 170.
+FAMILY: ultrabond_midmorning_duration_shock_continuation
+Mechanism: an exceptional 10:00-11:00 long-duration move reflects delayed macro interpretation
+and convexity hedging that continues as Treasury cash liquidity deepens.
+Hypothesis: follow top-30% UB move 11:01-15:00; $250 stop.
 Falsification: stressed PnL, era, or yearly robustness failure.
 """
 import numpy as np
 import pandas as pd
-FAMILY="ultrabond_cash_open_duration_shock_continuation";PARAMS={"history_sessions":60,"quantile":.8,"stop_dollars":250}
+FAMILY="ultrabond_midmorning_duration_shock_continuation";PARAMS={"history_sessions":60,"quantile":.7,"stop_dollars":250}
 def signals(panel):
  ans={s:np.zeros(len(d),dtype=np.int64) for s,d in panel.items()}
  if 'UB' not in panel:return ans
  d=panel['UB'];out=ans['UB'];c,t=d.close.to_numpy(),d.ct_sec.to_numpy();vals=[]
  for ix in d.groupby('session',sort=False).indices.values():
-  x=np.array([i for i in ix if 34200<=t[i]<36000]);bars=[i for i in ix if 36000<=t[i]<54000]
-  r=c[x[-1]]-c[x[0]] if len(x)>1 else 0.;q=np.quantile(np.abs(vals[-60:]),.8) if len(vals)>=60 else np.inf;side=np.sign(r) if abs(r)>=q else 0
+  x=np.array([i for i in ix if 36000<=t[i]<39600]);bars=[i for i in ix if 39600<=t[i]<54000]
+  r=c[x[-1]]-c[x[0]] if len(x)>1 else 0.;q=np.quantile(np.abs(vals[-60:]),.7) if len(vals)>=60 else np.inf;side=np.sign(r) if abs(r)>=q else 0
   if side and bars:
    ref=c[bars[0]]
    for i in bars:
