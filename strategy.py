@@ -1,25 +1,23 @@
-"""v18n-2 experiment 166.
-FAMILY: spx_asia_to_us_risk_transfer_momentum
-Mechanism: a sustained Asia-to-Europe equity-risk move transfers into US institutional futures
-liquidity and continues through cash-session positioning.
-Hypothesis: follow completed 10-session ES Asia direction 08:30-15:00; $250 stop.
+"""v18n-2 experiment 167.
+FAMILY: nasdaq_firstweek_monday_institutional_rebalance
+Mechanism: first-week Monday pension and systematic allocation demand persists into US afternoon
+index liquidity.
+Hypothesis: long NQ first-calendar-week Mondays 12:00-15:00; $250 stop.
 Falsification: stressed PnL, era, or yearly robustness failure.
 """
 import numpy as np
 import pandas as pd
-FAMILY="spx_asia_to_us_risk_transfer_momentum";PARAMS={"lookback_sessions":10,"stop_dollars":250}
+FAMILY="nasdaq_firstweek_monday_institutional_rebalance";PARAMS={"calendar_week":1,"stop_dollars":250}
 def signals(panel):
  ans={s:np.zeros(len(d),dtype=np.int64) for s,d in panel.items()}
- if 'ES' not in panel:return ans
- d=panel['ES'];out=ans['ES'];c,t=d.close.to_numpy(),d.ct_sec.to_numpy();moves=[]
+ if 'NQ' not in panel:return ans
+ d=panel['NQ'];out=ans['NQ'];c,t=d.close.to_numpy(),d.ct_sec.to_numpy();dt=pd.to_datetime(d.session);dow=dt.dt.dayofweek.to_numpy();wk=((dt.dt.day-1)//7+1).to_numpy()
  for ix in d.groupby('session',sort=False).indices.values():
-  x=[i for i in ix if t[i]>=61200 or t[i]<21600];bars=[i for i in ix if 30600<=t[i]<54000]
-  side=np.sign(sum(moves[-10:])) if len(moves)>=10 else 0
-  if side and bars:
-   ref=c[bars[0]]
-   for i in bars:
-    if side*(c[i]-ref)<=-5:break
-    out[i]=side
-  if len(x)>1:moves.append(c[x[-1]]-c[x[0]])
+  bars=[i for i in ix if 43200<=t[i]<54000]
+  if dow[ix[0]]!=0 or wk[ix[0]]!=1 or not bars:continue
+  ref=c[bars[0]]
+  for i in bars:
+   if c[i]-ref<=-12.5:break
+   out[i]=1
  return ans
-def entry_risk(panel):return {s:np.full(len(d),250. if s=='ES' else 0.) for s,d in panel.items()}
+def entry_risk(panel):return {s:np.full(len(d),250. if s=='NQ' else 0.) for s,d in panel.items()}
