@@ -1,9 +1,9 @@
-"""v18n-2 experiment 288."""
+"""v18n-2 experiment 288 causal repair."""
 import numpy as np
 
 FAMILY = "microether_lateus_riskrepricing_reversal"
-PARAMS = {"reference_start": 54000, "reference_end": 61200, "trade_start": 61260,
-          "trade_end": 72000, "stop_dollars": 250}
+PARAMS = {"reference_end": 61200, "trade_start": 61260, "trade_end": 72000,
+          "stop_dollars": 250}
 
 
 def signals(panel):
@@ -15,16 +15,15 @@ def signals(panel):
     seconds = data.ct_sec.to_numpy()
     out = ans["MET"]
     for positions in data.groupby("session", sort=False).indices.values():
-        reference = [i for i in positions if 54000 <= seconds[i] <= 61200]
-        trading = [i for i in positions if 61260 <= seconds[i] < 72000]
-        if not reference or not trading:
-            continue
-        side = -1 if close[reference[-1]] >= close[reference[0]] else 1
-        anchor = close[reference[-1]]
-        for i in trading:
-            if side * (close[i] - anchor) <= -2500:
-                break
-            out[i] = side
+        last_ref = None
+        for i in positions:
+            if seconds[i] == 61200:
+                last_ref = i
+            if last_ref is not None and 61260 <= seconds[i] < 72000:
+                side = -1 if close[last_ref] >= close[positions[0]] else 1
+                if side * (close[i] - close[last_ref]) <= -2500:
+                    break
+                out[i] = side
     return ans
 
 
