@@ -13,8 +13,9 @@ def signals(panel):
         return ans
     data = panel["ES"]
     close, seconds = data.close.to_numpy(), data.ct_sec.to_numpy()
-    days = pd.to_datetime(data.session).day.to_numpy()
-    weekdays = pd.to_datetime(data.session).dayofweek.to_numpy()
+    calendar = pd.to_datetime(data.session)
+    days = calendar.dt.day.to_numpy()
+    weekdays = calendar.dt.dayofweek.to_numpy()
     out = ans["ES"]
     for positions in data.groupby("session", sort=False).indices.values():
         if weekdays[positions[0]] != 4 or not 15 <= days[positions[0]] <= 21:
