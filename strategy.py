@@ -1,14 +1,14 @@
-"""v18n-2 experiment 143.
-FAMILY: equity_lunch_breadth_execution_60day
+"""v18n-2 experiment 144.
+FAMILY: equity_lunch_breadth_execution_40day
 Mechanism: aligned exceptional lunch moves across indexes reveal institutional execution that
-continues into closing liquidity. A 60-day seasonal volatility history supplies enough early
-observations while preserving causal ranking.
+continues into closing liquidity. Forty completed sessions provide causal seasonal context and
+increase early-history coverage.
 Hypothesis: two-index aligned top-5% 11:00-12:00 move, follow 12:01-15:00; $250 stops.
 Falsification: stressed PnL, era, or yearly robustness failure.
 """
 import numpy as np
 import pandas as pd
-FAMILY="equity_lunch_breadth_execution_60day";PARAMS={"lookback_sessions":60,"quantile":.95,"quorum":2}
+FAMILY="equity_lunch_breadth_execution_40day";PARAMS={"lookback_sessions":40,"quantile":.95,"quorum":2}
 STOP={'ES':5.,'NQ':12.5,'YM':50.,'RTY':5.}
 def signals(panel):
  ans={s:np.zeros(len(d),dtype=np.int64) for s,d in panel.items()};info={}
@@ -17,7 +17,7 @@ def signals(panel):
   for day,ix in d.groupby('session',sort=False).indices.items():
    pre=[i for i in ix if 39600<=t[i]<43200]
    if len(pre)>1:
-    m=c[pre[-1]]-c[pre[0]];th=np.quantile(np.abs(hist[-60:]),.95) if len(hist)>=60 else np.inf
+    m=c[pre[-1]]-c[pre[0]];th=np.quantile(np.abs(hist[-40:]),.95) if len(hist)>=40 else np.inf
     if abs(m)>=th:info.setdefault(str(day),{})[s]=np.sign(m)
     hist.append(m)
  for s,d in panel.items():
