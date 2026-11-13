@@ -1,48 +1,18 @@
-"""v18n-2 experiment 394.
-FAMILY: equity_lunchbreadth_junerebalance_goldsettlement_durationflow_combination
-Mechanism: broad lunch index execution and June NQ index-rebalance plus third-cycle Friday GC settlement demand are distinct
-calendar flows combined to raise combine-attempt frequency.
-Hypothesis: causal 60-session two-index lunch quorum plus June NQ opening continuation; $250 stops.
-Falsification: stressed PnL, era, years, or shared-account risk failure.
-"""
+"""v18n-2 experiment 395."""
 import numpy as np
-import pandas as pd
-FAMILY="equity_lunchbreadth_junerebalance_goldsettlement_durationflow_combination";PARAMS={"lookback_sessions":60,"quantile":.95,"quorum":2,"week_cycle":4,"duration_lookback":60}
-STOP={'ES':5.,'NQ':12.5,'YM':50.,'RTY':5.,'GC':2.5}
+FAMILY="crude_naturalgas_usmorning_energycomplex_convergence"
+PARAMS={"lookback":60,"z_threshold":2.,"trade_start":30600,"trade_end":39600,"stop_dollars":.25}
 def signals(panel):
- ans={s:np.zeros(len(d),dtype=np.int64) for s,d in panel.items()};info={}
- dur={}
- if 'ZN' in panel:
-  d0=panel['ZN']; r=np.log(d0.close/d0.close.shift(60)); sd=r.shift(1).rolling(1200,min_periods=600).std(); dur=dict(zip(d0.index,(r/sd).fillna(0)))
- for s,d in panel.items():
-  if s not in STOP or s=='GC':continue
-  c,t=d.close.to_numpy(),d.ct_sec.to_numpy();hist=[]
-  for day,ix in d.groupby('session',sort=False).indices.items():
-   pre=[i for i in ix if 39600<=t[i]<43200]
-   if len(pre)>1:
-    m=c[pre[-1]]-c[pre[0]];th=np.quantile(np.abs(hist[-60:]),.95) if len(hist)>=60 else np.inf
-    if abs(m)>=th:info.setdefault(str(day),{})[s]=np.sign(m)
-    hist.append(m)
- for s,d in panel.items():
-  if s not in STOP:continue
-  c,t=d.close.to_numpy(),d.ct_sec.to_numpy();out=ans[s];mon=pd.to_datetime(d.session).dt.month.to_numpy()
-  dt=pd.to_datetime(d.session);dow=dt.dt.dayofweek.to_numpy();week=dt.dt.isocalendar().week.to_numpy()
-  for day,ix in d.groupby('session',sort=False).indices.items():
-   if s=='GC':
-    side=1 if dow[ix[0]]==4 and week[ix[0]]%4==2 else 0;bars=[i for i in ix if 30600<=t[i]<54000]
-   else:
-    z=info.get(str(day),{});side=z.get(s,0) if sum(v==z.get(s,0) for v in z.values())>=2 else 0;bars=[i for i in ix if 43260<=t[i]<54000]
-    if s=='NQ' and mon[ix[0]]==6:
-     pre=[i for i in ix if 30600<=t[i]<36000]
-     if len(pre)>1: side=np.sign(c[pre[-1]]-c[pre[0]]);bars=[i for i in ix if 36000<=t[i]<54000]
-   if s=='NQ' and not side:
-    vals=[dur.get(d.index[i],0) for i in ix if 30600<=t[i]<39600]
-    hit=next((v for v in vals if abs(v)>=2),0)
-    if hit: side=1 if hit>0 else -1;bars=[i for i in ix if 30600<=t[i]<39600]
-   if not side or not bars:continue
-   ref=c[bars[0]]
-   for i in bars:
-    if side*(c[i]-ref)<=-STOP[s]:break
-    out[i]=side
- return ans
-def entry_risk(panel):return {s:np.full(len(d),250. if s in STOP else 0.) for s,d in panel.items()}
+ a={s:np.zeros(len(d),dtype=np.int64) for s,d in panel.items()}
+ if 'CL' not in panel or 'NG' not in panel:return a
+ c,n=panel['CL'],panel['NG'];cn=n.close.reindex(c.index).ffill();rel=np.log(c.close/c.close.shift(60))-np.log(cn/cn.shift(60));z=(rel/rel.shift().rolling(1200,min_periods=600).std()).to_numpy();x=c.close.to_numpy();t=c.ct_sec.to_numpy();o=a['CL']
+ for p in c.groupby('session',sort=False).indices.values():
+  for k,i in enumerate(p):
+   if 30600<=t[i]<39600 and abs(z[i])>=2:
+    side=-1 if z[i]>0 else 1;v=x[i]
+    for q in p[k+1:]:
+     if t[q]>=39600 or side*(x[q]-v)<=-.25:break
+     o[q]=side
+    break
+ return a
+def entry_risk(panel):return {s:np.full(len(d),250. if s=='CL' else 0.) for s,d in panel.items()}
