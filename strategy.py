@@ -14,9 +14,8 @@ def signals(panel):
  d=panel['NQ'];o=ans['NQ'];c,t=d.close.to_numpy(),d.ct_sec.to_numpy(); days=list(d.groupby('session',sort=False).indices.values())
  for n,ix in enumerate(days):
   day=pd.Timestamp(d.session.iloc[ix[0]])
-  # Session labels already carry business calendar; next three labels crossing month means last 3.
-  future=[pd.Timestamp(d.session.iloc[z[0]]) for z in days[n+1:n+4]]
-  if sum(x.month!=day.month for x in future)<1:continue
+  # Deterministic business calendar; no future market data.
+  if (day + pd.offsets.BDay(3)).month == day.month:continue
   bars=[i for i in ix if 61200<=t[i]<61500]+[i for i in ix if 30600<=t[i]<54000]
   if len(bars)<2:continue
   ref=c[bars[0]]
