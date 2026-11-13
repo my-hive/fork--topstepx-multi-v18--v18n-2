@@ -1,12 +1,12 @@
-"""v18n-2 experiment 387."""
+"""v18n-2 experiment 388."""
 import numpy as np
 import pandas as pd
-FAMILY="nasdaq_tenyear_duration_shock_delayed_continuation"
+FAMILY="nasdaq_euro_overlap_riskshock_delayed_continuation"
 PARAMS={"lookback":60,"threshold":0.002,"trade_start":30600,"trade_end":39600,"stop_points":12.5}
 def signals(panel):
  ans={s:np.zeros(len(d),dtype=np.int64) for s,d in panel.items()}
- if 'NQ' not in panel or 'ZN' not in panel:return ans
- n,z=panel['NQ'],panel['ZN'];ix=n.index;cz=z.close.reindex(ix).ffill();r=np.log(cz/cz.shift(PARAMS['lookback'])).to_numpy();c=n.close.to_numpy();t=n.ct_sec.to_numpy();o=ans['NQ']
+ if 'NQ' not in panel or '6E' not in panel:return ans
+ n,e=panel['NQ'],panel['6E'];ix=n.index;ce=e.close.reindex(ix).ffill();r=np.log(ce/ce.shift(PARAMS['lookback'])).to_numpy();c=n.close.to_numpy();t=n.ct_sec.to_numpy();o=ans['NQ']
  for p in n.groupby('session',sort=False).indices.values():
   for k,i in enumerate(p):
    if not(PARAMS['trade_start']<=t[i]<PARAMS['trade_end'] and abs(r[i])>=PARAMS['threshold']):continue
