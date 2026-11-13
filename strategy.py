@@ -1,8 +1,8 @@
-"""v18n-2 experiment 134.
+"""v18n-2 experiment 135.
 FAMILY: longbond_gold_midmorning_realrate_flow
 Mechanism: exceptional long-bond repricing during US macro execution reveals real-rate demand;
 gold hedgers transmit same-direction safe-haven flow into COMEX settlement.
-Hypothesis: follow GC after causal ZB top-30% 09:30-10:30 move, 10:31-15:00; $250 stop.
+Hypothesis: follow GC after causal ZB top-30% 09:30-10:30 move, 10:31-15:00; one $250 stop.
 Falsification: stressed PnL, era, or yearly robustness failure.
 """
 import numpy as np
@@ -22,9 +22,10 @@ def signals(panel):
  for day,ix in d.groupby('session',sort=False).indices.items():
   side=events.get(str(day),0);bars=[i for i in ix if 37860<=t[i]<54000]
   if not side or not bars:continue
-  ref=c[bars[0]]
+  ref=c[bars[0]];stopped=False
   for i in bars:
-   if side*(c[i]-ref)<=-2.5:break
-   out[i]=side
+   if stopped:continue
+   if side*(c[i]-ref)<=-2.5:stopped=True
+   else:out[i]=side
  return ans
 def entry_risk(panel):return {s:np.full(len(d),250. if s=='GC' else 0.) for s,d in panel.items()}
