@@ -1,23 +1,23 @@
-"""v18n-2 experiment 190.
-FAMILY: platinum_wednesday_late_us_supply_reversal
-Mechanism: Wednesday late US platinum dealer flow overextends and reverses before settlement as
-thin physical supply liquidity is balanced.
-Hypothesis: fade PL 12:00-13:00 direction 13:00-15:00 Wednesday; $250 stop.
+"""v18n-2 experiment 191.
+FAMILY: gasoline_april_drivingseason_inventory_demand
+Mechanism: April driving-season inventory demand supports RBOB across US sessions.
+Hypothesis: long RB April 17:00-15:00; $250 stop.
 Falsification: stressed PnL, era, or yearly robustness failure.
 """
 import numpy as np
 import pandas as pd
-FAMILY="platinum_wednesday_late_us_supply_reversal";PARAMS={"weekday":2,"stop_dollars":250}
+FAMILY="gasoline_april_drivingseason_inventory_demand";PARAMS={"month":4,"stop_dollars":250}
 def signals(panel):
  ans={s:np.zeros(len(d),dtype=np.int64) for s,d in panel.items()}
- if 'PL' not in panel:return ans
- d=panel['PL'];out=ans['PL'];c,t=d.close.to_numpy(),d.ct_sec.to_numpy();dow=pd.to_datetime(d.session).dt.dayofweek.to_numpy()
+ if 'RB' not in panel:return ans
+ d=panel['RB'];out=ans['RB'];c,t=d.close.to_numpy(),d.ct_sec.to_numpy();mo=pd.to_datetime(d.session).dt.month.to_numpy()
  for ix in d.groupby('session',sort=False).indices.values():
-  x=[i for i in ix if 43200<=t[i]<46800];bars=[i for i in ix if 46800<=t[i]<54000]
-  if dow[ix[0]]!=2 or len(x)<2 or not bars:continue
-  side=-np.sign(c[x[-1]]-c[x[0]]);ref=c[bars[0]]
+  if mo[ix[0]]!=4:continue
+  bars=[i for i in ix if t[i]<54000]
+  if not bars:continue
+  ref=c[bars[0]]
   for i in bars:
-   if side*(c[i]-ref)<=-5.:break
-   out[i]=side
+   if c[i]-ref<=-.006:break
+   out[i]=1
  return ans
-def entry_risk(panel):return {s:np.full(len(d),250. if s=='PL' else 0.) for s,d in panel.items()}
+def entry_risk(panel):return {s:np.full(len(d),250. if s=='RB' else 0.) for s,d in panel.items()}
