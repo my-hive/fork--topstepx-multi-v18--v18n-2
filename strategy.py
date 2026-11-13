@@ -1,23 +1,25 @@
-"""v18n-2 experiment 176.
-FAMILY: naturalgas_june_storage_hedge_reversal
-Mechanism: June early US storage/utility hedging moves in the first cash half-hour reverse as
-physical liquidity absorbs the pressure by 11:00.
-Hypothesis: fade completed 08:30-09:00 NG move in June through 11:00; $250 stop.
+"""v18n-2 experiment 177.
+FAMILY: naturalgas_extreme_overnight_utility_continuation
+Mechanism: exceptional overnight NG move reflects weather/storage utility repricing and continues
+through US physical-market liquidity.
+Hypothesis: follow causal top-decile overnight NG move 08:30-15:00; $250 stop.
 Falsification: stressed PnL, era, or yearly robustness failure.
 """
 import numpy as np
 import pandas as pd
-FAMILY="naturalgas_june_storage_hedge_reversal";PARAMS={"month":6,"stop_dollars":250}
+FAMILY="naturalgas_extreme_overnight_utility_continuation";PARAMS={"history_sessions":60,"quantile":.9,"stop_dollars":250}
 def signals(panel):
  ans={s:np.zeros(len(d),dtype=np.int64) for s,d in panel.items()}
  if 'NG' not in panel:return ans
- d=panel['NG'];out=ans['NG'];c,t=d.close.to_numpy(),d.ct_sec.to_numpy();mo=pd.to_datetime(d.session).dt.month.to_numpy()
+ d=panel['NG'];out=ans['NG'];c,t=d.close.to_numpy(),d.ct_sec.to_numpy();vals=[]
  for ix in d.groupby('session',sort=False).indices.values():
-  x=[i for i in ix if 30600<=t[i]<32400];bars=[i for i in ix if 32400<=t[i]<39600]
-  if mo[ix[0]]!=6 or len(x)<2 or not bars:continue
-  side=-np.sign(c[x[-1]]-c[x[0]]);ref=c[bars[0]]
-  for i in bars:
-   if side*(c[i]-ref)<=-.025:break
-   out[i]=side
+  x=np.array([i for i in ix if t[i]<30600]);bars=[i for i in ix if 30600<=t[i]<54000]
+  r=c[x[-1]]-c[x[0]] if len(x)>1 else 0.;q=np.quantile(np.abs(vals[-60:]),.9) if len(vals)>=60 else np.inf;side=np.sign(r) if abs(r)>=q else 0
+  if side and bars:
+   ref=c[bars[0]]
+   for i in bars:
+    if side*(c[i]-ref)<=-.025:break
+    out[i]=side
+  if len(x)>1:vals.append(r)
  return ans
 def entry_risk(panel):return {s:np.full(len(d),250. if s=='NG' else 0.) for s,d in panel.items()}
