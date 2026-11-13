@@ -12,7 +12,7 @@ def signals(panel):
  ans={s:np.zeros(len(d),dtype=np.int64) for s,d in panel.items()}
  if 'RB' not in panel:return ans
  d=panel['RB'];out=ans['RB'];c,t=d.close.to_numpy(),d.ct_sec.to_numpy();dow=pd.to_datetime(d.session).dt.dayofweek.to_numpy()
- for ix in d.groupby('session',sort=False).indices.items():
+ for ix in d.groupby('session',sort=False).indices.values():
   if dow[ix[0]]!=0:continue
   bars=[i for i in ix if t[i]>=61200 or t[i]<21600]
   if not bars:continue
