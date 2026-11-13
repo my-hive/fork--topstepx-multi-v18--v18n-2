@@ -1,23 +1,23 @@
-"""v18n-2 experiment 247.
-FAMILY: gasoline_november_refinery_hedge_reversal
-Mechanism: November gasoline inventory hedging creates cash-session selling as refiners reduce
-winter gasoline exposure.
-Hypothesis: short RB 08:30-15:00 in November; $250 stop.
+"""v18n-2 experiment 248.
+FAMILY: heatingoil_august_refinery_hedge_continuation
+Mechanism: August refinery maintenance and distillate hedging support heating-oil demand through
+US cash hours.
+Hypothesis: long HO 08:30-15:00 in August; $250 stop.
 Falsification: stressed PnL, era, or yearly robustness failure.
 """
 import numpy as np
 import pandas as pd
-FAMILY="gasoline_november_refinery_hedge_reversal";PARAMS={"month":11,"stop_dollars":250}
+FAMILY="heatingoil_august_refinery_hedge_continuation";PARAMS={"month":8,"stop_dollars":250}
 def signals(panel):
  ans={s:np.zeros(len(d),dtype=np.int64) for s,d in panel.items()}
- if 'RB' not in panel:return ans
- d=panel['RB'];out=ans['RB'];c,t=d.close.to_numpy(),d.ct_sec.to_numpy();mon=pd.to_datetime(d.session).dt.month.to_numpy()
+ if 'HO' not in panel:return ans
+ d=panel['HO'];out=ans['HO'];c,t=d.close.to_numpy(),d.ct_sec.to_numpy();mon=pd.to_datetime(d.session).dt.month.to_numpy()
  for ix in d.groupby('session',sort=False).indices.values():
   bars=[i for i in ix if 30600<=t[i]<54000]
-  if mon[ix[0]]!=11 or not bars:continue
+  if mon[ix[0]]!=8 or not bars:continue
   ref=c[bars[0]]
   for i in bars:
-   if ref-c[i]<=-.006:break
-   out[i]=-1
+   if c[i]-ref<=-.006:break
+   out[i]=1
  return ans
-def entry_risk(panel):return {s:np.full(len(d),250. if s=='RB' else 0.) for s,d in panel.items()}
+def entry_risk(panel):return {s:np.full(len(d),250. if s=='HO' else 0.) for s,d in panel.items()}
