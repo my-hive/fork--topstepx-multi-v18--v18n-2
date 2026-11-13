@@ -1,36 +1,37 @@
-"""v18n-2 experiment 289."""
+"""v18n-2 experiment 290."""
 import numpy as np
 import pandas as pd
 
-FAMILY = "bitcoin_weekend_handoff_asia_liquidity_reversal"
-PARAMS = {"friday_reference_end": 61200, "trade_start": 61260,
-          "trade_end": 72000, "stop_dollars": 250}
+FAMILY = "spx_monthly_optionsexpiry_dealergamma_reversal"
+PARAMS = {"reference_end": 36000, "trade_start": 46800, "trade_end": 52200,
+          "stop_dollars": 250}
 
 
 def signals(panel):
     ans = {symbol: np.zeros(len(data), dtype=np.int64) for symbol, data in panel.items()}
-    if "MBT" not in panel:
+    if "ES" not in panel:
         return ans
-    data = panel["MBT"]
+    data = panel["ES"]
     close, seconds = data.close.to_numpy(), data.ct_sec.to_numpy()
-    out = ans["MBT"]
-    prior = None
-    for session, positions in data.groupby("session", sort=False).indices.items():
-        weekday = pd.Timestamp(session).dayofweek
-        if weekday == 0 and prior is not None:
-            start, end = prior
-            side = -1 if end >= start else 1
-            anchor = end
-            for i in positions:
-                if 61260 <= seconds[i] < 72000:
-                    if side * (close[i] - anchor) <= -2500:
-                        break
-                    out[i] = side
-        ref = [i for i in positions if 54000 <= seconds[i] <= 61200]
-        prior = (close[ref[0]], close[ref[-1]]) if weekday == 4 and ref else None
+    days = pd.to_datetime(data.session).day.to_numpy()
+    weekdays = pd.to_datetime(data.session).dayofweek.to_numpy()
+    out = ans["ES"]
+    for positions in data.groupby("session", sort=False).indices.values():
+        if weekdays[positions[0]] != 4 or not 15 <= days[positions[0]] <= 21:
+            continue
+        anchor = None
+        side = 0
+        for i in positions:
+            if seconds[i] == 36000:
+                anchor = close[i]
+                side = -1 if close[i] >= close[positions[0]] else 1
+            elif anchor is not None and 46800 <= seconds[i] < 52200:
+                if side * (close[i] - anchor) <= -5:
+                    break
+                out[i] = side
     return ans
 
 
 def entry_risk(panel):
-    return {symbol: np.full(len(data), 250.0 if symbol == "MBT" else 0.0)
+    return {symbol: np.full(len(data), 250.0 if symbol == "ES" else 0.0)
             for symbol, data in panel.items()}
