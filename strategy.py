@@ -11,7 +11,7 @@ FAMILY="gold_friday_prior_loss_shortcover";PARAMS={"stop_dollars":250}
 def signals(panel):
  ans={s:np.zeros(len(d),dtype=np.int64) for s,d in panel.items()}
  if 'GC' not in panel:return ans
- d=panel['GC'];o=ans['GC'];c,t=d.close.to_numpy(); days=list(d.groupby('session',sort=False).indices.values());last=[]
+ d=panel['GC'];o=ans['GC'];c,t=d.close.to_numpy(),d.ct_sec.to_numpy(); days=list(d.groupby('session',sort=False).indices.values());last=[]
  for n,ix in enumerate(days):
   day=pd.Timestamp(d.session.iloc[ix[0]]);side=day.dayofweek==4 and n and last[-1]<0
   # complete prior session close/open retained before processing current session
