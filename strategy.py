@@ -1,32 +1,32 @@
-"""v18n-2 experiment 298."""
+"""v18n-2 experiment 299."""
 import numpy as np
 
-FAMILY = "microcrude_asia_uscommercial_liquidity_reversal"
-PARAMS = {"reference_end": 27000, "trade_start": 27060, "trade_end": 36000,
+FAMILY = "yen_tokyofixing_liquidity_reversal"
+PARAMS = {"reference_end": 68100, "trade_start": 68160, "trade_end": 75600,
           "stop_dollars": 250}
 
 
 def signals(panel):
     ans = {symbol: np.zeros(len(data), dtype=np.int64) for symbol, data in panel.items()}
-    if "MCL" not in panel:
+    if "6J" not in panel:
         return ans
-    data = panel["MCL"]
+    data = panel["6J"]
     close, seconds = data.close.to_numpy(), data.ct_sec.to_numpy()
-    out = ans["MCL"]
+    out = ans["6J"]
     for positions in data.groupby("session", sort=False).indices.values():
         anchor = None
         side = 0
         for i in positions:
-            if seconds[i] == 27000:
+            if seconds[i] == 68100:
                 anchor = close[i]
                 side = -1 if close[i] >= close[positions[0]] else 1
-            elif anchor is not None and 27060 <= seconds[i] < 36000:
-                if side * (close[i] - anchor) <= -2.5:
+            elif anchor is not None and 68160 <= seconds[i] < 75600:
+                if side * (close[i] - anchor) <= -0.00002:
                     break
                 out[i] = side
     return ans
 
 
 def entry_risk(panel):
-    return {symbol: np.full(len(data), 250.0 if symbol == "MCL" else 0.0)
+    return {symbol: np.full(len(data), 250.0 if symbol == "6J" else 0.0)
             for symbol, data in panel.items()}
