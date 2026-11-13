@@ -16,12 +16,13 @@ def signals(panel):
   for ix in groups[s]:
    end=[i for i in ix if 53400<=t[i]<=54000]
    if end:data[s][d.session.iloc[ix[0]]]=c[end[-1]]
- common=sorted(set.intersection(*(set(data[s]) for s in PV)));pending={};prior={}
- for n,day in enumerate(common):
-  vals={s:data[s][day] for s in PV}
-  if len(prior)==3 and n+1<len(common):
-   r={s:vals[s]/prior[s]-1 for s in PV};hi=max(r,key=r.get);lo=min(r,key=r.get);pending[common[n+1]]={s:(1 if s==hi else -1 if s==lo else 0) for s in PV}
-  prior=vals
+ common=sorted(set.intersection(*(set(data[s]) for s in PV)));pending={}
+ # At day n open, only returns from completed common days n-2 -> n-1 are known.
+ for n in range(2, len(common)):
+  prev, before = common[n-1], common[n-2]
+  r={s:data[s][prev] / data[s][before] - 1 for s in PV}
+  hi, lo = max(r,key=r.get), min(r,key=r.get)
+  pending[common[n]]={s:(1 if s==hi else -1 if s==lo else 0) for s in PV}
  for s,d in panel.items():
   if s not in PV:continue
   c,t=d.close.to_numpy(),d.ct_sec.to_numpy();o=ans[s]
