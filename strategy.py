@@ -1,14 +1,14 @@
-"""v18n-2 experiment 313."""
+"""v18n-2 experiment 314."""
 import numpy as np
 import pandas as pd
-FAMILY="nasdaq_payrollrelease_ratesensitivity_continuation"
+FAMILY="nasdaq_cpi_proxy_inflation_repricing_continuation"
 PARAMS={"reference_end":32400,"trade_start":32460,"trade_end":39600,"stop_dollars":250}
 def signals(panel):
  ans={s:np.zeros(len(d),dtype=np.int64) for s,d in panel.items()}
  if "NQ" not in panel:return ans
  d=panel["NQ"];c,t=d.close.to_numpy(),d.ct_sec.to_numpy();cal=pd.to_datetime(d.session);day,wd=cal.dt.day.to_numpy(),cal.dt.dayofweek.to_numpy();out=ans["NQ"]
  for p in d.groupby("session",sort=False).indices.values():
-  if not(wd[p[0]]==4 and day[p[0]]<=7):continue
+  if not(wd[p[0]]==2 and 8<=day[p[0]]<=14):continue
   a=None;side=0
   for i in p:
    if t[i]==32400:a=c[i];side=1 if c[i]>=c[p[0]] else -1
