@@ -1,38 +1,36 @@
-"""v18n-2 experiment 307."""
+"""v18n-2 experiment 308."""
 import numpy as np
 import pandas as pd
 
-FAMILY = "fiveyear_payrollrelease_duration_repricing_continuation"
-PARAMS = {"reference_end": 32400, "trade_start": 32460, "trade_end": 39600,
+FAMILY = "soybeanoil_usda_wasde_repricing_continuation"
+PARAMS = {"reference_end": 40500, "trade_start": 40560, "trade_end": 46800,
           "stop_dollars": 250}
 
 
 def signals(panel):
     ans = {symbol: np.zeros(len(data), dtype=np.int64) for symbol, data in panel.items()}
-    if "ZF" not in panel:
+    if "ZL" not in panel:
         return ans
-    data = panel["ZF"]
+    data = panel["ZL"]
     close, seconds = data.close.to_numpy(), data.ct_sec.to_numpy()
-    calendar = pd.to_datetime(data.session)
-    days, weekdays = calendar.dt.day.to_numpy(), calendar.dt.dayofweek.to_numpy()
-    out = ans["ZF"]
+    day = pd.to_datetime(data.session).dt.day.to_numpy()
+    out = ans["ZL"]
     for positions in data.groupby("session", sort=False).indices.values():
-        first = positions[0]
-        if not (weekdays[first] == 4 and days[first] <= 7):
+        if not 9 <= day[positions[0]] <= 13:
             continue
         anchor = None
         side = 0
         for i in positions:
-            if seconds[i] == 32400:
+            if seconds[i] == 40500:
                 anchor = close[i]
                 side = 1 if close[i] >= close[positions[0]] else -1
-            elif anchor is not None and 32460 <= seconds[i] < 39600:
-                if side * (close[i] - anchor) <= -0.125:
+            elif anchor is not None and 40560 <= seconds[i] < 46800:
+                if side * (close[i] - anchor) <= -0.25:
                     break
                 out[i] = side
     return ans
 
 
 def entry_risk(panel):
-    return {symbol: np.full(len(data), 250.0 if symbol == "ZF" else 0.0)
+    return {symbol: np.full(len(data), 250.0 if symbol == "ZL" else 0.0)
             for symbol, data in panel.items()}
